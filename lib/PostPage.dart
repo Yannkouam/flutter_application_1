@@ -1,9 +1,28 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart'; // Import pour choisir une image
-import 'dart:io'; // Pour utiliser File
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
-class PostPage extends StatelessWidget {
+void main() {
+  runApp(MaterialApp(
+    home: PostPage(),
+  ));
+}
+
+class PostPage extends StatefulWidget {
   const PostPage({super.key});
+
+  @override
+  _PostPageState createState() => _PostPageState();
+}
+
+class _PostPageState extends State<PostPage> {
+  final List<Map<String, dynamic>> annonces = [];
+
+  void ajouterAnnonce(Map<String, dynamic> annonce) {
+    setState(() {
+      annonces.add(annonce);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,10 +53,12 @@ class PostPage extends StatelessWidget {
                 trailing:
                     const Icon(Icons.arrow_forward_ios, color: Colors.orange),
                 onTap: () {
-                  // Logique pour aller à la page de création d'annonce
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => CreatePostPage()),
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          CreatePostPage(onPostCreated: ajouterAnnonce),
+                    ),
                   );
                 },
               ),
@@ -50,35 +71,41 @@ class PostPage extends StatelessWidget {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
+
             Expanded(
-              child: ListView.builder(
-                itemCount:
-                    3, // Exemple avec 3 annonces, remplacez par votre liste dynamique
-                itemBuilder: (context, index) {
-                  return Card(
-                    margin: const EdgeInsets.symmetric(vertical: 8),
-                    child: ListTile(
-                      leading: Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[300],
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.image, color: Colors.grey),
-                      ),
-                      title: Text('Annonce ${index + 1}'),
-                      subtitle: const Text('Statut : En cours'),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.orange),
-                        onPressed: () {
-                          // Logique pour éditer l'annonce
-                        },
-                      ),
+              child: annonces.isEmpty
+                  ? const Center(child: Text("Aucune annonce en cours."))
+                  : ListView.builder(
+                      itemCount: annonces.length,
+                      itemBuilder: (context, index) {
+                        final annonce = annonces[index];
+                        return Card(
+                          margin: const EdgeInsets.symmetric(vertical: 8),
+                          child: ListTile(
+                            leading: annonce['image'] != null
+                                ? Image.file(
+                                    annonce['image'],
+                                    width: 50,
+                                    height: 50,
+                                    fit: BoxFit.cover,
+                                  )
+                                : Container(
+                                    width: 50,
+                                    height: 50,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[300],
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Icon(Icons.image,
+                                        color: Colors.grey),
+                                  ),
+                            title: Text(annonce['titre']),
+                            subtitle: Text(
+                                'Prix: ${annonce['prix']}€ • État: ${annonce['etat']}'),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
             ),
           ],
         ),
@@ -87,9 +114,10 @@ class PostPage extends StatelessWidget {
   }
 }
 
-// Page de création d'annonce avec sélection de catégorie et photo
 class CreatePostPage extends StatefulWidget {
-  const CreatePostPage({super.key});
+  final Function(Map<String, dynamic>) onPostCreated;
+
+  const CreatePostPage({super.key, required this.onPostCreated});
 
   @override
   _CreatePostPageState createState() => _CreatePostPageState();
@@ -103,31 +131,44 @@ class _CreatePostPageState extends State<CreatePostPage> {
     'Sports',
     'Jouets'
   ];
-  String selectedCategory = 'Vêtements'; // Valeur par défaut
-  File? _image; // Variable pour stocker l'image choisie
+  final List<String> etats = ['Neuf', 'Bon état', 'Usé'];
+  String selectedCategory = 'Vêtements';
+  String selectedEtat = 'Neuf';
+  File? _image;
+  final TextEditingController _titreController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _prixController = TextEditingController();
 
-  // Méthode pour choisir une image depuis la galerie
-  Future<void> _pickImageFromGallery() async {
+  Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    final pickedFile =
+        await picker.pickImage(source: source, maxWidth: 150, maxHeight: 150);
 
     if (pickedFile != null) {
       setState(() {
-        _image = File(pickedFile.path); // Stocke le chemin de l'image
+        _image = File(pickedFile.path);
       });
     }
   }
 
-  // Méthode pour prendre une photo avec la caméra
-  Future<void> _pickImageFromCamera() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.camera);
-
-    if (pickedFile != null) {
-      setState(() {
-        _image = File(pickedFile.path); // Stocke le chemin de l'image
-      });
+  void _publierAnnonce() {
+    if (_titreController.text.isEmpty || _prixController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Veuillez remplir tous les champs')),
+      );
+      return;
     }
+
+    widget.onPostCreated({
+      'titre': _titreController.text,
+      'description': _descriptionController.text,
+      'prix': _prixController.text,
+      'categorie': selectedCategory,
+      'etat': selectedEtat,
+      'image': _image,
+    });
+
+    Navigator.pop(context);
   }
 
   @override
@@ -142,117 +183,117 @@ class _CreatePostPageState extends State<CreatePostPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Champ de sélection de catégorie
-            const Text(
-              'Choisir une catégorie',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            DropdownButton<String>(
-              value: selectedCategory,
-              onChanged: (String? newValue) {
-                setState(() {
-                  selectedCategory = newValue!;
-                });
-              },
-              items: categories.map<DropdownMenuItem<String>>((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(value),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 20),
-
-            // Champ pour le titre de l'annonce
-            const Text(
-              'Titre de l\'annonce',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            TextField(
-              decoration: InputDecoration(
-                hintText: 'Entrez le titre de votre annonce',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Champ pour la description de l'annonce
-            const Text(
-              'Description de l\'annonce',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            TextField(
-              decoration: InputDecoration(
-                hintText: 'Entrez la description de votre annonce',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 4,
-            ),
-            const SizedBox(height: 20),
-
-            // Boutons pour choisir ou prendre une photo
             Row(
-              mainAxisAlignment: MainAxisAlignment.start,
               children: [
-                ElevatedButton.icon(
-                  onPressed: _pickImageFromGallery,
-                  icon: Icon(Icons.photo_library),
-                  label: Text('Galerie'),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Catégorie',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      DropdownButton<String>(
+                        value: selectedCategory,
+                        isExpanded: true,
+                        onChanged: (String? newValue) {
+                          setState(() {
+                            selectedCategory = newValue!;
+                          });
+                        },
+                        items: categories
+                            .map<DropdownMenuItem<String>>((String value) {
+                          return DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
                 ),
-                SizedBox(width: 16),
-                ElevatedButton.icon(
-                  onPressed: _pickImageFromCamera,
-                  icon: Icon(Icons.camera_alt),
-                  label: Text('Caméra'),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('État',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      DropdownButton<String>(
+                        value: selectedEtat,
+                        isExpanded: true,
+                        onChanged: (String? newValue) {
+                          setState(() {
+                            selectedEtat = newValue!;
+                          });
+                        },
+                        items:
+                            etats.map<DropdownMenuItem<String>>((String value) {
+                          return DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-            SizedBox(height: 16),
-
-            // Affichage de l'image choisie ou prise
+            const SizedBox(height: 20),
+            const Text('Titre de l\'annonce',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            TextField(
+                controller: _titreController,
+                decoration:
+                    const InputDecoration(border: OutlineInputBorder())),
+            const SizedBox(height: 20),
+            const Text('Prix (€)',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            TextField(
+                controller: _prixController,
+                keyboardType: TextInputType.number,
+                decoration:
+                    const InputDecoration(border: OutlineInputBorder())),
+            const SizedBox(height: 20),
+            const Text('Description',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            TextField(
+                controller: _descriptionController,
+                maxLines: 3,
+                decoration:
+                    const InputDecoration(border: OutlineInputBorder())),
+            const SizedBox(height: 20),
+            const Text('Image (aperçu)',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             _image != null
-                ? Image.file(
-                    _image!,
-                    height: 100,
-                    fit: BoxFit.cover,
-                  )
+                ? Image.file(_image!,
+                    width: 100, height: 100, fit: BoxFit.cover)
                 : Container(
+                    width: 100,
                     height: 100,
-                    width: double.infinity,
                     color: Colors.grey[300],
-                    child: Center(
-                      child: Text('Aucune image sélectionnée'),
-                    ),
-                  ),
-            SizedBox(height: 10),
-
-            // Bouton pour publier l'annonce
-            ElevatedButton(
-              onPressed: () {
-                // Logique pour publier l'annonce
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                      content: Text(
-                          'Annonce publiée dans la catégorie $selectedCategory')),
-                );
-              },
-              child: const Text('Publier l\'annonce'),
-              style: ElevatedButton.styleFrom(
-                padding: EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                    child: const Icon(Icons.image, color: Colors.grey)),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () => _pickImage(ImageSource.gallery),
+                  icon: const Icon(Icons.photo_library),
+                  label: const Text('Galerie'),
                 ),
-              ),
+                const SizedBox(width: 16),
+                ElevatedButton.icon(
+                  onPressed: () => _pickImage(ImageSource.camera),
+                  icon: const Icon(Icons.camera_alt),
+                  label: const Text('Caméra'),
+                ),
+              ],
             ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+                onPressed: _publierAnnonce, child: const Text('Publier')),
           ],
         ),
       ),
     );
   }
-}
-
-void main() {
-  runApp(MaterialApp(
-    home: PostPage(),
-  ));
 }

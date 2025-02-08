@@ -29,7 +29,8 @@ class _HomePageState extends State<HomePage> {
       'date': '14/01/2025',
       'likes': 20,
       'dislikes': 2,
-      'image': 'assets/table.jpg',
+      'image':
+          'https://th.bing.com/th/id/OIP.3KuNeAj0fyJLw0jQ1afkHQHaJ4?rs=1&pid=ImgDetMain',
     },
   ];
 
@@ -142,8 +143,9 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(16),
-                      child: Image.asset(
-                        selectedAnnonce!['image'],
+                      child: Image.network(
+                        selectedAnnonce![
+                            'image'], // Utilisation de l'URL de l'image
                         width: double.infinity,
                         height: 250,
                         fit: BoxFit.cover,

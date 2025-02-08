@@ -1,56 +1,68 @@
 import 'package:flutter/material.dart';
 
 class FavoritePage extends StatelessWidget {
-  const FavoritePage({super.key});
+  final List<Map<String, dynamic>> favoriteAnnonces;
+
+  const FavoritePage({Key? key, required this.favoriteAnnonces})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-
-    // Données fictives pour les favoris
-    final List<Map<String, dynamic>> favorites = [
-      {
-        'title': 'Lampe de bureau',
-        'price': 29.99,
-        'imageUrl': 'https://via.placeholder.com/150',
-        'description': 'Lampe moderne pour bureau.'
-      },
-      {
-        'title': 'Étagère en bois',
-        'price': 79.99,
-        'imageUrl': 'https://via.placeholder.com/150',
-        'description': 'Étagère robuste en bois massif.'
-      },
-    ];
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Favoris'),
+        title: const Text('Mes Favoris'),
+        backgroundColor: Colors.orangeAccent,
       ),
-      body: Padding(
-        padding: EdgeInsets.all(screenWidth * 0.05),
-        child: ListView.builder(
-          itemCount: favorites.length,
-          itemBuilder: (context, index) {
-            final item = favorites[index];
-            return Card(
-              margin: EdgeInsets.only(bottom: screenHeight * 0.02),
-              child: ListTile(
-                leading: Image.network(item['imageUrl']),
-                title: Text(item['title']),
-                subtitle: Text('${item['price']} €'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () {
-                    // Logique pour supprimer des favoris
-                  },
-                ),
+      body: favoriteAnnonces.isEmpty
+          ? Center(
+              child: Text(
+                "Aucun favori ajouté",
+                style: TextStyle(fontSize: 18, color: Colors.grey),
               ),
-            );
-          },
-        ),
-      ),
+            )
+          : ListView.builder(
+              itemCount: favoriteAnnonces.length,
+              itemBuilder: (context, index) {
+                var annonce = favoriteAnnonces[index];
+
+                return Card(
+                  elevation: 4,
+                  margin: EdgeInsets.all(10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ListTile(
+                    contentPadding: EdgeInsets.all(10),
+                    leading: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.asset(
+                        annonce['image'],
+                        width: 50,
+                        height: 50,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    title: Text(
+                      annonce['title'],
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(
+                      'Prix : ${annonce['price']}€',
+                      style: TextStyle(color: Colors.grey[700]),
+                    ),
+                    trailing: IconButton(
+                      icon: Icon(Icons.favorite, color: Colors.red),
+                      onPressed: () {
+                        // Logique pour supprimer de la liste des favoris
+                      },
+                    ),
+                    onTap: () {
+                      // Logique si on veut voir les détails de l'annonce (par exemple, navigation vers une page de détail)
+                    },
+                  ),
+                );
+              },
+            ),
     );
   }
 }
