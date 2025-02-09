@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 void main() {
   runApp(MaterialApp(
@@ -18,10 +20,54 @@ class PostPage extends StatefulWidget {
 class _PostPageState extends State<PostPage> {
   final List<Map<String, dynamic>> annonces = [];
 
+  @override
+  void initState() {
+    super.initState();
+    _loadAnnonces();
+  }
+
+  // Charger les annonces depuis SharedPreferences
+  void _loadAnnonces() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? annoncesJson = prefs.getString('annonces');
+    if (annoncesJson != null) {
+      final List<dynamic> decodedAnnonces = json.decode(annoncesJson);
+      setState(() {
+        annonces.clear();
+        annonces
+            .addAll(decodedAnnonces.map((e) => Map<String, dynamic>.from(e)));
+      });
+    }
+  }
+
+  // Sauvegarder les annonces dans SharedPreferences
+  void _saveAnnonces() async {
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setString('annonces', json.encode(annonces));
+  }
+
+  // Ajouter une annonce
   void ajouterAnnonce(Map<String, dynamic> annonce) {
     setState(() {
       annonces.add(annonce);
     });
+    _saveAnnonces();
+  }
+
+  // Supprimer une annonce
+  void supprimerAnnonce(int index) {
+    setState(() {
+      annonces.removeAt(index);
+    });
+    _saveAnnonces();
+  }
+
+  // Modifier une annonce
+  void modifierAnnonce(int index, Map<String, dynamic> annonce) {
+    setState(() {
+      annonces[index] = annonce;
+    });
+    _saveAnnonces();
   }
 
   @override
@@ -102,6 +148,39 @@ class _PostPageState extends State<PostPage> {
                             title: Text(annonce['titre']),
                             subtitle: Text(
                                 'Prix: ${annonce['prix']}€ • État: ${annonce['etat']}'),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // Icône stylo pour modifier l'annonce
+                                IconButton(
+                                  icon: const Icon(Icons.edit,
+                                      color: Colors.blue),
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => CreatePostPage(
+                                          onPostCreated: (modifiedAnnonce) {
+                                            modifierAnnonce(
+                                                index, modifiedAnnonce);
+                                          },
+                                          annonce:
+                                              annonce, // Passer les données de l'annonce à modifier
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                // Icône poubelle pour supprimer l'annonce
+                                IconButton(
+                                  icon: const Icon(Icons.delete,
+                                      color: Colors.red),
+                                  onPressed: () {
+                                    supprimerAnnonce(index);
+                                  },
+                                ),
+                              ],
+                            ),
                           ),
                         );
                       },
@@ -116,8 +195,9 @@ class _PostPageState extends State<PostPage> {
 
 class CreatePostPage extends StatefulWidget {
   final Function(Map<String, dynamic>) onPostCreated;
+  final Map<String, dynamic>? annonce;
 
-  const CreatePostPage({super.key, required this.onPostCreated});
+  const CreatePostPage({super.key, required this.onPostCreated, this.annonce});
 
   @override
   _CreatePostPageState createState() => _CreatePostPageState();
@@ -138,6 +218,19 @@ class _CreatePostPageState extends State<CreatePostPage> {
   final TextEditingController _titreController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _prixController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.annonce != null) {
+      _titreController.text = widget.annonce!['titre'] ?? '';
+      _descriptionController.text = widget.annonce!['description'] ?? '';
+      _prixController.text = widget.annonce!['prix']?.toString() ?? '';
+      selectedCategory = widget.annonce!['categorie'] ?? 'Vêtements';
+      selectedEtat = widget.annonce!['etat'] ?? 'Neuf';
+      _image = widget.annonce!['image'];
+    }
+  }
 
   Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
@@ -175,7 +268,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Créer une annonce'),
+        title: const Text('Créer ou modifier une annonce'),
         backgroundColor: Colors.orangeAccent,
       ),
       body: Padding(
@@ -290,7 +383,13 @@ class _CreatePostPageState extends State<CreatePostPage> {
             ),
             const SizedBox(height: 20),
             ElevatedButton(
-                onPressed: _publierAnnonce, child: const Text('Publier')),
+              onPressed: _publierAnnonce,
+              child: Text(
+                widget.annonce == null
+                    ? 'Publier l\'annonce'
+                    : 'Modifier l\'annonce',
+              ),
+            ),
           ],
         ),
       ),
