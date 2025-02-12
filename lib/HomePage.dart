@@ -77,17 +77,14 @@ class _HomePageState extends State<HomePage> {
               stream:
                   FirebaseFirestore.instance.collection('Annonce').snapshots(),
               builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
-                // 🟡 Affichage du loader si les données sont en chargement
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return Center(child: CircularProgressIndicator());
                 }
 
-                // 🔴 Vérification si aucune donnée n'est trouvée
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                   return Center(child: Text("Aucune publication trouvée"));
                 }
 
-                // ✅ Filtrer les publications en fonction de la recherche
                 var filteredDocs = snapshot.data!.docs.where((doc) {
                   var titre = doc['Titre']?.toLowerCase() ?? '';
                   var categorie = doc['catégorie']?.toLowerCase() ?? '';
@@ -95,16 +92,13 @@ class _HomePageState extends State<HomePage> {
                       categorie.contains(searchQuery);
                 }).toList();
 
-                // ✅ Affichage des publications sous forme de blocs dans un GridView
                 return GridView.builder(
                   padding: EdgeInsets.all(10.0),
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2, // Nombre de colonnes
-                    crossAxisSpacing: 10.0, // Espacement entre les blocs
-                    mainAxisSpacing:
-                        10.0, // Espacement entre les blocs en verticale
-                    childAspectRatio:
-                        4 / 3, // Rapport largeur/hauteur = 1, bloc carré
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 10.0,
+                    mainAxisSpacing: 10.0,
+                    childAspectRatio: 4 / 3,
                   ),
                   itemCount: filteredDocs.length,
                   itemBuilder: (context, index) {
@@ -131,7 +125,7 @@ class _HomePageState extends State<HomePage> {
                                   ? Image.network(
                                       doc['image'],
                                       width: double.infinity,
-                                      height: 150, // Taille de l'image réduite
+                                      height: 150,
                                       fit: BoxFit.cover,
                                       errorBuilder: (context, error,
                                               stackTrace) =>
@@ -176,7 +170,7 @@ class _HomePageState extends State<HomePage> {
                         ? Image.network(
                             selectedAnnonce!['image'],
                             width: double.infinity,
-                            height: 200, // Taille de l'image réduite
+                            height: 200,
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) =>
                                 Icon(Icons.broken_image, size: 50),
@@ -198,6 +192,26 @@ class _HomePageState extends State<HomePage> {
                     "Prix : ${selectedAnnonce!['prix']} €",
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
+                  SizedBox(height: 8),
+                  Text(
+                    "Description : ${selectedAnnonce!['Description'] ?? 'Pas de description'}",
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    "État : ${selectedAnnonce!['état'] ?? 'Non spécifié'}",
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    "Auteur : ${selectedAnnonce!['auteur'] ?? 'Inconnu'}",
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    "Date de publication : ${selectedAnnonce!['datePublication']?.toDate() ?? 'Non spécifiée'}",
+                    style: TextStyle(fontSize: 14),
+                  ),
                   SizedBox(height: 20),
                   Row(
                     children: [
@@ -213,6 +227,13 @@ class _HomePageState extends State<HomePage> {
                       ),
                       Text('${selectedAnnonce!['dislikes'] ?? 0} Dislikes'),
                     ],
+                  ),
+                  SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () {
+                      // Action pour l'achat
+                    },
+                    child: Text("Acheter"),
                   ),
                 ],
               ),
