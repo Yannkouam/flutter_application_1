@@ -1,41 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-// 1. Page principale affichant les annonces
 class HomePage extends StatefulWidget {
   @override
   _HomePageState createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  // Liste des annonces (sous forme de données simulées)
-  List<Map<String, dynamic>> annonces = [
-    {
-      'title': 'Sofa en cuir',
-      'price': 500.0,
-      'description': 'Sofa en cuir noir, utilisé mais en bon état.',
-      'status': 'Occasion',
-      'author': 'Jean Dupont',
-      'date': '12/01/2025',
-      'likes': 10,
-      'dislikes': 1,
-      'image': 'assets/sofa.jpg',
-    },
-    {
-      'title': 'Table en bois',
-      'price': 150.0,
-      'description': 'Table en bois massif, très bon état.',
-      'status': 'Neuf',
-      'author': 'Marie Durand',
-      'date': '14/01/2025',
-      'likes': 20,
-      'dislikes': 2,
-      'image':
-          'https://th.bing.com/th/id/OIP.3KuNeAj0fyJLw0jQ1afkHQHaJ4?rs=1&pid=ImgDetMain',
-    },
-  ];
-
-  // Variable pour afficher les détails d'une annonce
-  Map<String, dynamic>? selectedAnnonce;
+  String searchQuery = ''; // Variable pour stocker le texte de la recherche
+  TextEditingController searchController =
+      TextEditingController(); // Contrôleur pour le TextField
+  Map<String, dynamic>?
+      selectedAnnonce; // Variable pour afficher les détails de l'annonce
 
   void _likeAnnonce() {
     setState(() {
@@ -54,14 +30,35 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       appBar: selectedAnnonce == null
           ? AppBar(
-              title: Text("Accueil"),
-              actions: [
-                IconButton(
-                  icon: Icon(Icons.add),
-                  onPressed: () {
-                    // Logique de publication d'une nouvelle annonce
-                  },
+              title: TextField(
+                controller: searchController,
+                decoration: InputDecoration(
+                  hintText: 'Rechercher...',
+                  border: InputBorder.none,
+                  hintStyle: TextStyle(color: Colors.white60),
                 ),
+                style: TextStyle(color: Colors.white),
+                onChanged: (value) {
+                  setState(() {
+                    searchQuery =
+                        value.toLowerCase(); // Mettre à jour la recherche
+                  });
+                },
+              ),
+              centerTitle: true,
+              backgroundColor: Colors.blueAccent,
+              actions: [
+                if (searchQuery.isNotEmpty)
+                  IconButton(
+                    icon: Icon(Icons.clear),
+                    onPressed: () {
+                      setState(() {
+                        searchQuery = ''; // Effacer la recherche
+                        searchController
+                            .clear(); // Effacer le texte dans le champ de recherche
+                      });
+                    },
+                  ),
               ],
             )
           : AppBar(
@@ -76,181 +73,150 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
       body: selectedAnnonce == null
-          ? Padding(
-              padding: EdgeInsets.all(10.0),
-              child: GridView.builder(
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                  childAspectRatio: 4 / 3,
-                ),
-                itemCount: annonces.length,
-                itemBuilder: (context, index) {
-                  var annonce = annonces[index];
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        selectedAnnonce = annonce;
-                      });
-                    },
-                    child: Card(
-                      elevation: 4,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Padding(
-                        padding: EdgeInsets.all(8.0),
+          ? StreamBuilder(
+              stream:
+                  FirebaseFirestore.instance.collection('Annonce').snapshots(),
+              builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
+                // 🟡 Affichage du loader si les données sont en chargement
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                }
+
+                // 🔴 Vérification si aucune donnée n'est trouvée
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return Center(child: Text("Aucune publication trouvée"));
+                }
+
+                // ✅ Filtrer les publications en fonction de la recherche
+                var filteredDocs = snapshot.data!.docs.where((doc) {
+                  var titre = doc['Titre']?.toLowerCase() ?? '';
+                  var categorie = doc['catégorie']?.toLowerCase() ?? '';
+                  return titre.contains(searchQuery) ||
+                      categorie.contains(searchQuery);
+                }).toList();
+
+                // ✅ Affichage des publications sous forme de blocs dans un GridView
+                return GridView.builder(
+                  padding: EdgeInsets.all(10.0),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2, // Nombre de colonnes
+                    crossAxisSpacing: 10.0, // Espacement entre les blocs
+                    mainAxisSpacing:
+                        10.0, // Espacement entre les blocs en verticale
+                    childAspectRatio:
+                        4 / 3, // Rapport largeur/hauteur = 1, bloc carré
+                  ),
+                  itemCount: filteredDocs.length,
+                  itemBuilder: (context, index) {
+                    var doc = filteredDocs[index];
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          selectedAnnonce = doc.data() as Map<String, dynamic>;
+                        });
+                      },
+                      child: Card(
+                        margin: EdgeInsets.symmetric(vertical: 8.0),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        elevation: 4,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: Container(
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
-                                  color: Colors.grey[300],
-                                  image: DecorationImage(
-                                    image: AssetImage(annonce['image']),
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: doc['image'] != null &&
+                                      doc['image'].toString().isNotEmpty
+                                  ? Image.network(
+                                      doc['image'],
+                                      width: double.infinity,
+                                      height: 150, // Taille de l'image réduite
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error,
+                                              stackTrace) =>
+                                          Icon(Icons.broken_image, size: 50),
+                                    )
+                                  : Icon(Icons.image_not_supported, size: 50),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Text(
+                                doc['Titre'] ?? 'Sans titre',
+                                style: TextStyle(
+                                    fontSize: 14, fontWeight: FontWeight.bold),
                               ),
                             ),
-                            SizedBox(height: 8),
-                            Text(
-                              annonce['title'],
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              "Prix : ${annonce['price']}€",
-                              style: TextStyle(color: Colors.grey[700]),
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8.0),
+                              child: Text(
+                                "${doc['catégorie'] ?? 'Inconnu'} - ${doc['prix'] ?? 0} €",
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.grey[600]),
+                              ),
                             ),
                           ],
                         ),
                       ),
-                    ),
-                  );
-                },
-              ),
+                    );
+                  },
+                );
+              },
             )
           : Padding(
-              padding: EdgeInsets.all(16.0),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Image.network(
-                        selectedAnnonce![
-                            'image'], // Utilisation de l'URL de l'image
-                        width: double.infinity,
-                        height: 250,
-                        fit: BoxFit.cover,
+              padding: EdgeInsets.all(10.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: selectedAnnonce!['image'] != null &&
+                            selectedAnnonce!['image'].toString().isNotEmpty
+                        ? Image.network(
+                            selectedAnnonce!['image'],
+                            width: double.infinity,
+                            height: 200, // Taille de l'image réduite
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Icon(Icons.broken_image, size: 50),
+                          )
+                        : Icon(Icons.image_not_supported, size: 50),
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    selectedAnnonce!['Titre'] ?? 'Sans titre',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    "Catégorie : ${selectedAnnonce!['catégorie'] ?? 'Inconnue'}",
+                    style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    "Prix : ${selectedAnnonce!['prix']} €",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 20),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.thumb_up),
+                        onPressed: _likeAnnonce,
                       ),
-                    ),
-                    SizedBox(height: 16),
-                    Text(
-                      selectedAnnonce!['title'],
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
+                      Text('${selectedAnnonce!['likes'] ?? 0} Likes'),
+                      SizedBox(width: 20),
+                      IconButton(
+                        icon: Icon(Icons.thumb_down),
+                        onPressed: _dislikeAnnonce,
                       ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Prix : ${selectedAnnonce!['price']}€',
-                      style: TextStyle(
-                        fontSize: 20,
-                        color: Colors.green,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    SizedBox(height: 12),
-                    Text(
-                      'Description :',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      selectedAnnonce!['description'],
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-                    SizedBox(height: 12),
-                    Text(
-                      'Statut : ${selectedAnnonce!['status']}',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Publié par : ${selectedAnnonce!['author']}',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Date de publication : ${selectedAnnonce!['date']}',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                    SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        IconButton(
-                          icon: Icon(Icons.thumb_up, color: Colors.blue),
-                          onPressed: _likeAnnonce,
-                        ),
-                        SizedBox(width: 4),
-                        Text(
-                          '${selectedAnnonce!['likes']} Likes',
-                          style: TextStyle(fontSize: 16),
-                        ),
-                        SizedBox(width: 16),
-                        IconButton(
-                          icon: Icon(Icons.thumb_down, color: Colors.red),
-                          onPressed: _dislikeAnnonce,
-                        ),
-                        SizedBox(width: 4),
-                        Text(
-                          '${selectedAnnonce!['dislikes']} Dislikes',
-                          style: TextStyle(fontSize: 16),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 24),
-                    ElevatedButton(
-                      onPressed: () {
-                        // Logique de réservation
-                      },
-                      child: Text(
-                        "Réserver",
-                        style: TextStyle(fontSize: 18),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orangeAccent,
-                        padding: EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                      Text('${selectedAnnonce!['dislikes'] ?? 0} Dislikes'),
+                    ],
+                  ),
+                ],
               ),
             ),
     );
   }
-}
-
-void main() {
-  runApp(MaterialApp(
-    home: HomePage(),
-  ));
 }
